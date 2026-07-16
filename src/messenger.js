@@ -66,7 +66,7 @@ async function processMessages(body) {
         // Rate-limit check: don't hammer Facebook's API
         if (!rateLimiter.tryConsume(senderId)) {
           console.warn(
-            `Rate-limited: skipping reply to ${senderId} (${rateLimiter.getCount(senderId)}/${rateLimiter.maxPerWindow} in window)`
+            `Rate-limited: skipping reply to ${senderId} (${rateLimiter.getCount(senderId)}/${rateLimiter.maxPerWindow} in window)`,
           );
           continue;
         }
@@ -85,20 +85,15 @@ async function processMessages(body) {
       sendMessage(r.recipientId, "god is loving and kind")
         .then(() => ({ status: "fulfilled", recipientId: r.recipientId }))
         .catch((err) => {
-          const detail =
-            err.response?.data?.error?.message ||
-            err.message ||
-            String(err);
-          console.error(
-            `Failed to send message to ${r.recipientId}: ${detail}`
-          );
+          const detail = err.response?.data?.error?.message || err.message || String(err);
+          console.error(`Failed to send message to ${r.recipientId}: ${detail}`);
           return {
             status: "rejected",
             recipientId: r.recipientId,
             error: detail,
           };
-        })
-    )
+        }),
+    ),
   );
 
   // Every individual promise catches errors, so .value is always present
@@ -171,10 +166,16 @@ async function sendMessage(recipientId, text) {
     },
     {
       params: { access_token: pageAccessToken },
-    }
+    },
   );
 
   return response.data;
 }
 
-module.exports = { configure, getRateLimiter, processMessages, sendMessage, validateWebhookPayload };
+module.exports = {
+  configure,
+  getRateLimiter,
+  processMessages,
+  sendMessage,
+  validateWebhookPayload,
+};

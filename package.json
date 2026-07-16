@@ -7,15 +7,30 @@
     "start": "node src/index.js",
     "dev": "node --watch src/index.js",
     "test": "node --test",
-    "test:watch": "node --test --watch"
+    "test:watch": "node --test --watch",
+    "lint": "eslint src/ test/",
+    "lint:fix": "eslint src/ test/ --fix",
+    "format": "prettier --check 'src/**/*.js' 'test/**/*.js'",
+    "format:fix": "prettier --write 'src/**/*.js' 'test/**/*.js'",
+    "check": "npm run lint && npm run format && npm test"
   },
   "engines": {
     "node": ">=22.0.0"
   },
-  "keywords": ["messenger", "bot", "chatbot", "facebook"],
+  "keywords": [
+    "messenger",
+    "bot",
+    "chatbot",
+    "facebook"
+  ],
   "license": "MIT",
   "dependencies": {
-    "express": "^4.21.0",
-    "axios": "^1.7.0"
+    "axios": "^1.7.0",
+    "express": "^4.21.0"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "eslint": "^10.7.0",
+    "prettier": "^3.9.5"
   }
 }

@@ -14,10 +14,7 @@ function verifySignature(rawBody, signatureHeader, appSecret) {
     return false;
   }
 
-  const expected = crypto
-    .createHmac("sha256", appSecret)
-    .update(rawBody, "utf8")
-    .digest("hex");
+  const expected = crypto.createHmac("sha256", appSecret).update(rawBody, "utf8").digest("hex");
 
   // Facebook sends "sha256=<hex>" – parse the hex part
   const prefix = "sha256=";
@@ -32,10 +29,7 @@ function verifySignature(rawBody, signatureHeader, appSecret) {
   }
 
   try {
-    return crypto.timingSafeEqual(
-      Buffer.from(expected),
-      Buffer.from(provided)
-    );
+    return crypto.timingSafeEqual(Buffer.from(expected), Buffer.from(provided));
   } catch {
     return false;
   }

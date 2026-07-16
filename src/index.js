@@ -46,7 +46,7 @@ app.use(
     verify: (req, _res, buf) => {
       req.rawBody = buf.toString("utf8");
     },
-  })
+  }),
 );
 
 // ---------------------------------------------------------------------------
@@ -88,9 +88,7 @@ app.post("/webhook", (req, res) => {
   }
 
   // Fire-and-forget message processing so the HTTP handler returns promptly.
-  processMessages(body).catch((err) =>
-    console.error("Unhandled error in processMessages:", err)
-  );
+  processMessages(body).catch((err) => console.error("Unhandled error in processMessages:", err));
 
   // Facebook expects a 200 OK quickly – send it immediately.
   res.sendStatus(200);

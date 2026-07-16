@@ -1,4 +1,4 @@
-const { describe, it, before, after } = require("node:test");
+const { describe, it, after } = require("node:test");
 const assert = require("node:assert");
 
 const { RateLimiter } = require("../src/ratelimit");

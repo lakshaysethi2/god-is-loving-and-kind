@@ -79,7 +79,12 @@ class RateLimiter {
     }
 
     if (firstValid > 0) {
-      this.windows.set(recipientId, timestamps.slice(firstValid));
+      const remaining = timestamps.slice(firstValid);
+      if (remaining.length === 0) {
+        this.windows.delete(recipientId);
+      } else {
+        this.windows.set(recipientId, remaining);
+      }
     }
   }
 

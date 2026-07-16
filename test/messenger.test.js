@@ -2,7 +2,13 @@ const { describe, it, before, after, beforeEach, mock } = require("node:test");
 const assert = require("node:assert");
 const axios = require("axios");
 
-const { configure, getRateLimiter, processMessages, sendMessage, validateWebhookPayload } = require("../src/messenger");
+const {
+  configure,
+  getRateLimiter,
+  processMessages,
+  sendMessage,
+  validateWebhookPayload,
+} = require("../src/messenger");
 
 describe("messenger module", () => {
   before(() => {
@@ -21,7 +27,7 @@ describe("messenger module", () => {
   describe("sendMessage", () => {
     it("sends a POST to the correct Graph API endpoint", async () => {
       axios.post.mock.mockImplementation(() =>
-        Promise.resolve({ data: { recipient_id: "12345", message_id: "mid.abc" } })
+        Promise.resolve({ data: { recipient_id: "12345", message_id: "mid.abc" } }),
       );
 
       const result = await sendMessage("recipient_psid_1", "god is loving and kind");
@@ -51,14 +57,12 @@ describe("messenger module", () => {
 
       await assert.rejects(
         () => sendMessage("recipient_psid_1", "god is loving and kind"),
-        /Request failed/
+        /Request failed/,
       );
     });
 
     it("uses the configured graph API version", async () => {
-      axios.post.mock.mockImplementation(() =>
-        Promise.resolve({ data: {} })
-      );
+      axios.post.mock.mockImplementation(() => Promise.resolve({ data: {} }));
 
       await sendMessage("u1", "hi");
       const url = axios.post.mock.calls[0].arguments[0];
@@ -69,7 +73,7 @@ describe("messenger module", () => {
   describe("processMessages", () => {
     it("replies to a basic text message", async () => {
       axios.post.mock.mockImplementation(() =>
-        Promise.resolve({ data: { recipient_id: "ok", message_id: "mid.1" } })
+        Promise.resolve({ data: { recipient_id: "ok", message_id: "mid.1" } }),
       );
 
       const body = {
@@ -89,16 +93,11 @@ describe("messenger module", () => {
       await processMessages(body);
 
       assert.strictEqual(axios.post.mock.calls.length, 1);
-      assert.strictEqual(
-        axios.post.mock.calls[0].arguments[1].recipient.id,
-        "psid_1"
-      );
+      assert.strictEqual(axios.post.mock.calls[0].arguments[1].recipient.id, "psid_1");
     });
 
     it("skips echo events (is_echo: true)", async () => {
-      axios.post.mock.mockImplementation(() =>
-        Promise.resolve({ data: {} })
-      );
+      axios.post.mock.mockImplementation(() => Promise.resolve({ data: {} }));
 
       const body = {
         object: "page",
@@ -120,9 +119,7 @@ describe("messenger module", () => {
     });
 
     it("replies to image messages", async () => {
-      axios.post.mock.mockImplementation(() =>
-        Promise.resolve({ data: {} })
-      );
+      axios.post.mock.mockImplementation(() => Promise.resolve({ data: {} }));
 
       const body = {
         object: "page",
@@ -133,9 +130,7 @@ describe("messenger module", () => {
                 sender: { id: "psid_3" },
                 message: {
                   mid: "mid.3",
-                  attachments: [
-                    { type: "image", payload: { url: "https://example.com/img.jpg" } },
-                  ],
+                  attachments: [{ type: "image", payload: { url: "https://example.com/img.jpg" } }],
                 },
               },
             ],
@@ -146,16 +141,11 @@ describe("messenger module", () => {
       await processMessages(body);
 
       assert.strictEqual(axios.post.mock.calls.length, 1);
-      assert.strictEqual(
-        axios.post.mock.calls[0].arguments[1].recipient.id,
-        "psid_3"
-      );
+      assert.strictEqual(axios.post.mock.calls[0].arguments[1].recipient.id, "psid_3");
     });
 
     it("replies to postback events", async () => {
-      axios.post.mock.mockImplementation(() =>
-        Promise.resolve({ data: {} })
-      );
+      axios.post.mock.mockImplementation(() => Promise.resolve({ data: {} }));
 
       const body = {
         object: "page",
@@ -174,16 +164,11 @@ describe("messenger module", () => {
       await processMessages(body);
 
       assert.strictEqual(axios.post.mock.calls.length, 1);
-      assert.strictEqual(
-        axios.post.mock.calls[0].arguments[1].recipient.id,
-        "psid_4"
-      );
+      assert.strictEqual(axios.post.mock.calls[0].arguments[1].recipient.id, "psid_4");
     });
 
     it("skips events without a sender ID", async () => {
-      axios.post.mock.mockImplementation(() =>
-        Promise.resolve({ data: {} })
-      );
+      axios.post.mock.mockImplementation(() => Promise.resolve({ data: {} }));
 
       const body = {
         object: "page",
@@ -205,9 +190,7 @@ describe("messenger module", () => {
     });
 
     it("skips events without message or postback", async () => {
-      axios.post.mock.mockImplementation(() =>
-        Promise.resolve({ data: {} })
-      );
+      axios.post.mock.mockImplementation(() => Promise.resolve({ data: {} }));
 
       const body = {
         object: "page",
@@ -248,7 +231,7 @@ describe("messenger module", () => {
 
     it("processes multiple messages in one entry concurrently", async () => {
       axios.post.mock.mockImplementation(() =>
-        Promise.resolve({ data: { recipient_id: "ok", message_id: "mid.x" } })
+        Promise.resolve({ data: { recipient_id: "ok", message_id: "mid.x" } }),
       );
 
       const body = {
@@ -267,9 +250,7 @@ describe("messenger module", () => {
       await processMessages(body);
 
       assert.strictEqual(axios.post.mock.calls.length, 3);
-      const recipients = axios.post.mock.calls.map(
-        (c) => c.arguments[1].recipient.id
-      );
+      const recipients = axios.post.mock.calls.map((c) => c.arguments[1].recipient.id);
       assert.ok(recipients.includes("psid_a"));
       assert.ok(recipients.includes("psid_b"));
       assert.ok(recipients.includes("psid_c"));
@@ -307,9 +288,7 @@ describe("messenger module", () => {
     });
 
     it("replies to sticker/GIF messages (attachments)", async () => {
-      axios.post.mock.mockImplementation(() =>
-        Promise.resolve({ data: {} })
-      );
+      axios.post.mock.mockImplementation(() => Promise.resolve({ data: {} }));
 
       const body = {
         object: "page",
@@ -320,9 +299,7 @@ describe("messenger module", () => {
                 sender: { id: "psid_sticker" },
                 message: {
                   mid: "mid.sticker",
-                  attachments: [
-                    { type: "sticker", payload: { sticker_id: 123456 } },
-                  ],
+                  attachments: [{ type: "sticker", payload: { sticker_id: 123456 } }],
                 },
               },
             ],
@@ -333,10 +310,7 @@ describe("messenger module", () => {
       await processMessages(body);
 
       assert.strictEqual(axios.post.mock.calls.length, 1);
-      assert.strictEqual(
-        axios.post.mock.calls[0].arguments[1].recipient.id,
-        "psid_sticker"
-      );
+      assert.strictEqual(axios.post.mock.calls[0].arguments[1].recipient.id, "psid_sticker");
     });
 
     it("handles non-array messaging gracefully", async () => {
@@ -355,11 +329,14 @@ describe("messenger module", () => {
       configure("test_page_token", "v99.0", { maxPerWindow: 1, windowMs: 60000 });
     });
 
+    after(() => {
+      // Restore default rate limiter for subsequent tests
+      configure("test_page_token", "v99.0", { maxPerWindow: 200, windowMs: 60000 });
+    });
+
     beforeEach(() => {
       mock.method(axios, "post", mock.fn());
-      axios.post.mock.mockImplementation(() =>
-        Promise.resolve({ data: {} })
-      );
+      axios.post.mock.mockImplementation(() => Promise.resolve({ data: {} }));
     });
 
     it("skips messages when rate limit is exceeded for a recipient", async () => {
@@ -406,10 +383,7 @@ describe("messenger module", () => {
 
       // user_a is rate-limited (already consumed), user_b is allowed
       assert.strictEqual(axios.post.mock.calls.length, 1);
-      assert.strictEqual(
-        axios.post.mock.calls[0].arguments[1].recipient.id,
-        "user_b"
-      );
+      assert.strictEqual(axios.post.mock.calls[0].arguments[1].recipient.id, "user_b");
       assert.strictEqual(results.length, 1);
     });
   });
@@ -420,9 +394,7 @@ describe("messenger module", () => {
         object: "page",
         entry: [
           {
-            messaging: [
-              { sender: { id: "u1" }, message: { text: "hi" } },
-            ],
+            messaging: [{ sender: { id: "u1" }, message: { text: "hi" } }],
           },
         ],
       };

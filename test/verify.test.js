@@ -10,9 +10,7 @@ const RAW_BODY = '{"object":"page","entry":[]}';
 // Pre-computed: crypto.createHmac("sha256", SECRET).update(RAW_BODY).digest("hex")
 // We compute it at test-time to stay verifiable.
 const { createHmac } = require("node:crypto");
-const VALID_HEX = createHmac("sha256", SECRET)
-  .update(RAW_BODY, "utf8")
-  .digest("hex");
+const VALID_HEX = createHmac("sha256", SECRET).update(RAW_BODY, "utf8").digest("hex");
 const VALID_SIGNATURE = `sha256=${VALID_HEX}`;
 
 describe("verifySignature", () => {
@@ -56,15 +54,9 @@ describe("verifySignature", () => {
 
   it("returns false when signature hex has wrong length", () => {
     // Too short
-    assert.strictEqual(
-      verifySignature(RAW_BODY, `sha256=abc123`, SECRET),
-      false
-    );
+    assert.strictEqual(verifySignature(RAW_BODY, "sha256=abc123", SECRET), false);
     // Too long
-    assert.strictEqual(
-      verifySignature(RAW_BODY, `sha256=${"a".repeat(128)}`, SECRET),
-      false
-    );
+    assert.strictEqual(verifySignature(RAW_BODY, `sha256=${"a".repeat(128)}`, SECRET), false);
   });
 
   it("returns false when signatureHeader is not a string", () => {
