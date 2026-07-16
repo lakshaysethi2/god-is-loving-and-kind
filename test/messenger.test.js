@@ -7,6 +7,7 @@ const {
   getRateLimiter,
   processMessages,
   sendMessage,
+  sendTypingIndicator,
   validateWebhookPayload,
 } = require("../src/messenger");
 
@@ -70,6 +71,27 @@ describe("messenger module", () => {
     });
   });
 
+  describe("sendTypingIndicator", () => {
+    it("sends a sender_action: typing_on POST", async () => {
+      axios.post.mock.mockImplementation(() => Promise.resolve({ data: {} }));
+
+      await sendTypingIndicator("psid_typing");
+
+      assert.strictEqual(axios.post.mock.calls.length, 1);
+      const call = axios.post.mock.calls[0];
+      assert.strictEqual(call.arguments[1].sender_action, "typing_on");
+      assert.strictEqual(call.arguments[1].recipient.id, "psid_typing");
+      assert.strictEqual(call.arguments[0], "https://graph.facebook.com/v99.0/me/messages");
+    });
+
+    it("does not throw on API error (logged internally)", async () => {
+      axios.post.mock.mockImplementation(() => Promise.reject(new Error("API error")));
+
+      // Should resolve, not throw
+      await assert.doesNotReject(() => sendTypingIndicator("psid_error"));
+    });
+  });
+
   describe("processMessages", () => {
     it("replies to a basic text message", async () => {
       axios.post.mock.mockImplementation(() =>
@@ -92,8 +114,15 @@ describe("messenger module", () => {
 
       await processMessages(body);
 
-      assert.strictEqual(axios.post.mock.calls.length, 1);
+      // Call 0: typing indicator, Call 1: message
+      assert.strictEqual(axios.post.mock.calls.length, 2);
+      assert.strictEqual(axios.post.mock.calls[0].arguments[1].sender_action, "typing_on");
       assert.strictEqual(axios.post.mock.calls[0].arguments[1].recipient.id, "psid_1");
+      assert.strictEqual(axios.post.mock.calls[1].arguments[1].recipient.id, "psid_1");
+      assert.strictEqual(
+        axios.post.mock.calls[1].arguments[1].message.text,
+        "god is loving and kind",
+      );
     });
 
     it("skips echo events (is_echo: true)", async () => {
@@ -140,8 +169,9 @@ describe("messenger module", () => {
 
       await processMessages(body);
 
-      assert.strictEqual(axios.post.mock.calls.length, 1);
-      assert.strictEqual(axios.post.mock.calls[0].arguments[1].recipient.id, "psid_3");
+      // 2 calls: typing indicator + message
+      assert.strictEqual(axios.post.mock.calls.length, 2);
+      assert.strictEqual(axios.post.mock.calls[1].arguments[1].recipient.id, "psid_3");
     });
 
     it("replies to postback events", async () => {
@@ -163,8 +193,9 @@ describe("messenger module", () => {
 
       await processMessages(body);
 
-      assert.strictEqual(axios.post.mock.calls.length, 1);
-      assert.strictEqual(axios.post.mock.calls[0].arguments[1].recipient.id, "psid_4");
+      // 2 calls: typing indicator + message
+      assert.strictEqual(axios.post.mock.calls.length, 2);
+      assert.strictEqual(axios.post.mock.calls[1].arguments[1].recipient.id, "psid_4");
     });
 
     it("skips events without a sender ID", async () => {
@@ -249,8 +280,11 @@ describe("messenger module", () => {
 
       await processMessages(body);
 
-      assert.strictEqual(axios.post.mock.calls.length, 3);
-      const recipients = axios.post.mock.calls.map((c) => c.arguments[1].recipient.id);
+      // 3 recipients × 2 calls each = 6 total
+      assert.strictEqual(axios.post.mock.calls.length, 6);
+      const messageCalls = axios.post.mock.calls.filter((c) => c.arguments[1].message);
+      assert.strictEqual(messageCalls.length, 3);
+      const recipients = messageCalls.map((c) => c.arguments[1].recipient.id);
       assert.ok(recipients.includes("psid_a"));
       assert.ok(recipients.includes("psid_b"));
       assert.ok(recipients.includes("psid_c"));
@@ -260,7 +294,8 @@ describe("messenger module", () => {
       let callCount = 0;
       axios.post.mock.mockImplementation(() => {
         callCount++;
-        if (callCount === 2) {
+        // Fail the 4th call (0-indexed: 3) — u2's actual message (not typing)
+        if (callCount === 4) {
           return Promise.reject(new Error("API failure on second message"));
         }
         return Promise.resolve({ data: { recipient_id: "ok" } });
@@ -281,7 +316,8 @@ describe("messenger module", () => {
 
       const results = await processMessages(body);
 
-      assert.strictEqual(axios.post.mock.calls.length, 3);
+      // 3 recipients × 2 calls each = 6 total
+      assert.strictEqual(axios.post.mock.calls.length, 6);
       assert.strictEqual(results.length, 3);
       const hasError = results.some((r) => r.status === "rejected");
       assert.ok(hasError, "Expected at least one rejected result");
@@ -309,8 +345,9 @@ describe("messenger module", () => {
 
       await processMessages(body);
 
-      assert.strictEqual(axios.post.mock.calls.length, 1);
-      assert.strictEqual(axios.post.mock.calls[0].arguments[1].recipient.id, "psid_sticker");
+      // 2 calls: typing indicator + message
+      assert.strictEqual(axios.post.mock.calls.length, 2);
+      assert.strictEqual(axios.post.mock.calls[1].arguments[1].recipient.id, "psid_sticker");
     });
 
     it("handles non-array messaging gracefully", async () => {
@@ -355,8 +392,8 @@ describe("messenger module", () => {
 
       const results = await processMessages(body);
 
-      // Only the first message should have been sent (second and third rate-limited)
-      assert.strictEqual(axios.post.mock.calls.length, 1);
+      // Only the first message sent (typing + message = 2 calls), rest rate-limited
+      assert.strictEqual(axios.post.mock.calls.length, 2);
       // The results only contain the one actual send
       assert.strictEqual(results.length, 1);
       assert.strictEqual(results[0].status, "fulfilled");
@@ -381,9 +418,10 @@ describe("messenger module", () => {
 
       const results = await processMessages(body);
 
-      // user_a is rate-limited (already consumed), user_b is allowed
-      assert.strictEqual(axios.post.mock.calls.length, 1);
-      assert.strictEqual(axios.post.mock.calls[0].arguments[1].recipient.id, "user_b");
+      // user_a is rate-limited (already consumed), user_b gets typing + message = 2 calls
+      assert.strictEqual(axios.post.mock.calls.length, 2);
+      // user_b's message is the second call
+      assert.strictEqual(axios.post.mock.calls[1].arguments[1].recipient.id, "user_b");
       assert.strictEqual(results.length, 1);
     });
   });

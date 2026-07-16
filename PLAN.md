@@ -35,9 +35,10 @@ Prioritized (P0 = must do, P1 = should do, P2 = nice to have).
 
 ## P2 — Nice to Have
 
-- [ ] **P2.1 — Graceful shutdown test.** The shutdown handler exists but is untested.
+- [x] **P2.1 — Graceful shutdown test.** ✅ Done (Iteration 9).
+  Integration tests verifying SIGTERM/SIGINT both produce clean exit code 0. Spawns the server, probes health endpoint, sends signal, asserts exit.
 - [x] **P2.2 — Healthcheck endpoint returns app status.** ✅ Done (Iteration 7).
   Added `src/status.js` tracking uptime, sent/success/failure/rate-limited counts. `/` endpoint returns JSON with `{ ok, message, uptimeMs, stats }`.
-- [ ] **P2.3 — CI workflow (GitHub Actions).** Run tests + lint on every push.
+- [ ] **P2.3 — CI workflow (GitHub Actions).** ⛔ BLOCKED — see BLOCKED.md.
 - [ ] **P2.4 — Send typing indicator.** Before replying, send the `typing_on` sender action so users see the bot is "typing".
 - [ ] **P2.5 — README.** Add setup, testing, and deployment documentation.
