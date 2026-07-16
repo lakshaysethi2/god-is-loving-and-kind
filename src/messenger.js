@@ -1,5 +1,6 @@
 const axios = require("axios");
 const { RateLimiter } = require("./ratelimit");
+const { DedupCache } = require("./dedup");
 const logger = require("./logger");
 const { recordSent, recordSuccess, recordFailure, recordRateLimited } = require("./status");
 
@@ -10,7 +11,10 @@ let pageAccessToken = "";
 let graphApiVersion = "v21.0";
 
 /** @type {RateLimiter} */
-let rateLimiter = new RateLimiter(); // sensible defaults: 200/60s per recipient
+let rateLimiter = new RateLimiter();
+
+/** @type {DedupCache} */
+let dedupCache = new DedupCache();
 
 /**
  * Configure the messenger module.
@@ -20,8 +24,11 @@ let rateLimiter = new RateLimiter(); // sensible defaults: 200/60s per recipient
  * @param {object}  [rateLimitOptions]   - Override rate-limiter defaults.
  * @param {number}  [rateLimitOptions.maxPerWindow=200]
  * @param {number}  [rateLimitOptions.windowMs=60000]
+ * @param {object}  [dedupOptions]       - Override dedup cache defaults.
+ * @param {number}  [dedupOptions.ttlMs=60000]
+ * @param {number}  [dedupOptions.maxSize=10000]
  */
-function configure(token, version, rateLimitOptions) {
+function configure(token, version, rateLimitOptions, dedupOptions) {
   pageAccessToken = token;
   if (version) graphApiVersion = version;
 
@@ -29,11 +36,34 @@ function configure(token, version, rateLimitOptions) {
     rateLimiter.dispose();
     rateLimiter = new RateLimiter(rateLimitOptions);
   }
+
+  if (dedupOptions) {
+    dedupCache.dispose();
+    dedupCache = new DedupCache(dedupOptions);
+  }
 }
 
 // Exposed so tests can inspect the instance
 function getRateLimiter() {
   return rateLimiter;
+}
+
+function getDedupCache() {
+  return dedupCache;
+}
+
+/**
+ * Extract a unique event identifier from a Messenger event, if one exists.
+ * Returns `null` if no reliable ID is available.
+ *
+ * @param {object} event
+ * @returns {string|null}
+ */
+function getEventId(event) {
+  if (event.message?.mid) return `mid:${event.message.mid}`;
+  if (event.postback?.mid) return `mid:${event.postback.mid}`;
+  // Fallback: if there's no MID we can't deduplicate — process anyway
+  return null;
 }
 
 /**
@@ -54,6 +84,13 @@ async function processMessages(body) {
       // Skip echo events — these are messages *sent by* our page, not from
       // users. Without this check the bot would reply to itself in a loop.
       if (event.message?.is_echo) continue;
+
+      // Deduplicate: skip events we've already processed
+      const eventId = getEventId(event);
+      if (eventId && dedupCache.isDuplicate(eventId)) {
+        logger.debug({ eventId }, "Skipping duplicate event");
+        continue;
+      }
 
       // Respond to EVERY incoming message type:
       //   - text messages
@@ -102,7 +139,14 @@ async function processMessages(body) {
         } catch (err) {
           const detail = err.response?.data?.error?.message || err.message || String(err);
           recordFailure();
-          logger.error({ recipientId: r.recipientId, err }, "Failed to send message");
+          logger.error(
+            {
+              recipientId: r.recipientId,
+              statusCode: err.response?.status,
+              apiErrorCode: err.response?.data?.error?.code,
+            },
+            "Failed to send message",
+          );
           return {
             status: "rejected",
             recipientId: r.recipientId,
@@ -187,8 +231,10 @@ async function sendTypingIndicator(recipientId) {
       },
     );
   } catch (err) {
-    // Non-critical — just log and continue
-    logger.warn({ recipientId, err }, "Failed to send typing indicator");
+    logger.warn(
+      { recipientId, statusCode: err.response?.status },
+      "Failed to send typing indicator",
+    );
   }
 }
 
@@ -216,6 +262,8 @@ async function sendMessage(recipientId, text) {
 
 module.exports = {
   configure,
+  getDedupCache,
+  getEventId,
   getRateLimiter,
   processMessages,
   sendMessage,

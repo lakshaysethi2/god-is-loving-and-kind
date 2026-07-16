@@ -17,8 +17,46 @@ const APP_SECRET = process.env.APP_SECRET;
 const GRAPH_API_VERSION = process.env.GRAPH_API_VERSION || "v21.0";
 
 // Rate-limit settings (optional, with sensible defaults)
-const RATE_LIMIT_MAX = Number(process.env.RATE_LIMIT_MAX_PER_WINDOW) || 200;
-const RATE_LIMIT_WINDOW_MS = Number(process.env.RATE_LIMIT_WINDOW_MS) || 60_000;
+const RATE_LIMIT_RAW = process.env.RATE_LIMIT_MAX_PER_WINDOW;
+const RATE_LIMIT_MAX = RATE_LIMIT_RAW
+  ? (() => {
+      const n = Number(RATE_LIMIT_RAW);
+      if (!Number.isFinite(n)) {
+        logger.fatal(
+          { value: RATE_LIMIT_RAW },
+          "RATE_LIMIT_MAX_PER_WINDOW must be a finite number",
+        );
+        process.exit(1);
+      }
+      if (n < 1 || !Number.isInteger(n)) {
+        logger.fatal({ value: n }, "RATE_LIMIT_MAX_PER_WINDOW must be a positive integer");
+        process.exit(1);
+      }
+      return n;
+    })()
+  : 200;
+
+const RATE_LIMIT_WINDOW_RAW = process.env.RATE_LIMIT_WINDOW_MS;
+const RATE_LIMIT_WINDOW_MS = RATE_LIMIT_WINDOW_RAW
+  ? (() => {
+      const n = Number(RATE_LIMIT_WINDOW_RAW);
+      if (!Number.isFinite(n)) {
+        logger.fatal(
+          { value: RATE_LIMIT_WINDOW_RAW },
+          "RATE_LIMIT_WINDOW_MS must be a finite number",
+        );
+        process.exit(1);
+      }
+      if (n < 1 || !Number.isInteger(n)) {
+        logger.fatal(
+          { value: n },
+          "RATE_LIMIT_WINDOW_MS must be a positive integer (milliseconds)",
+        );
+        process.exit(1);
+      }
+      return n;
+    })()
+  : 60_000;
 
 // Required checks on startup
 if (!VERIFY_TOKEN) {
@@ -50,6 +88,28 @@ app.use(
     },
   }),
 );
+
+// ---------------------------------------------------------------------------
+// In-flight tracking for graceful shutdown
+// ---------------------------------------------------------------------------
+/** @type {Set<Promise<unknown>>} */
+const inFlight = new Set();
+
+/**
+ * Wrap a promise so the process waits for it during shutdown.
+ * @param {Promise<unknown>} promise
+ * @returns {Promise<unknown>}
+ */
+function track(promise) {
+  inFlight.add(promise);
+  promise.finally(() => inFlight.delete(promise));
+  return promise;
+}
+
+// Expose for tests
+function getInFlightCount() {
+  return inFlight.size;
+}
 
 // ---------------------------------------------------------------------------
 // Webhook verification (Facebook handshake)
@@ -89,8 +149,10 @@ app.post("/webhook", (req, res) => {
     return res.sendStatus(200); // still return 200 so Facebook doesn't retry
   }
 
-  // Fire-and-forget message processing so the HTTP handler returns promptly.
-  processMessages(body).catch((err) => logger.error({ err }, "Unhandled error in processMessages"));
+  // Fire-and-forget but track in-flight so shutdown drains it.
+  track(processMessages(body)).catch((err) =>
+    logger.error({ err }, "Unhandled error in processMessages"),
+  );
 
   // Facebook expects a 200 OK quickly – send it immediately.
   res.sendStatus(200);
@@ -112,22 +174,50 @@ app.get("/", (_req, res) => {
 // ---------------------------------------------------------------------------
 // Graceful shutdown
 // ---------------------------------------------------------------------------
-const server = app.listen(PORT, () => {
-  logger.info({ port: PORT }, "Messenger bot listening");
-});
+let server;
+let started = false;
 
-function shutdown(signal) {
-  logger.info({ signal }, "Shutting down gracefully");
-  server.close(() => {
+/**
+ * Start the HTTP server. Called automatically by `node src/index.js` but
+ * can also be called manually by tests after setting up the environment.
+ */
+function start() {
+  if (started) return;
+  started = true;
+
+  server = app.listen(PORT, () => {
+    logger.info({ port: PORT }, "Messenger bot listening");
+  });
+
+  process.on("SIGTERM", () => shutdown("SIGTERM"));
+  process.on("SIGINT", () => shutdown("SIGINT"));
+}
+
+async function shutdown(signal) {
+  logger.info({ signal, inFlight: inFlight.size }, "Shutting down gracefully");
+
+  // Stop accepting new connections
+  server.close(async () => {
     logger.info("HTTP server closed");
+    // Wait for in-flight message processing to finish
+    if (inFlight.size > 0) {
+      logger.info({ count: inFlight.size }, "Waiting for in-flight processing to complete");
+      await Promise.allSettled(Array.from(inFlight));
+    }
+    logger.info("All in-flight work complete, exiting");
     process.exit(0);
   });
+
   // Force exit after 10s if connections don't drain
   setTimeout(() => {
-    logger.error("Forced shutdown after timeout");
+    logger.error({ remaining: inFlight.size }, "Forced shutdown after timeout");
     process.exit(1);
   }, 10_000).unref();
 }
 
-process.on("SIGTERM", () => shutdown("SIGTERM"));
-process.on("SIGINT", () => shutdown("SIGINT"));
+// Only auto-start when this file is the main entry point (not when required as a module)
+if (require.main === module) {
+  start();
+}
+
+module.exports = { app, getInFlightCount, start, shutdown };

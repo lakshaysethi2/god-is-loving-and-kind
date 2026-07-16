@@ -4,6 +4,8 @@ const axios = require("axios");
 
 const {
   configure,
+  getDedupCache,
+  getEventId,
   getRateLimiter,
   processMessages,
   sendMessage,
@@ -89,6 +91,22 @@ describe("messenger module", () => {
 
       // Should resolve, not throw
       await assert.doesNotReject(() => sendTypingIndicator("psid_error"));
+    });
+  });
+
+  describe("getEventId", () => {
+    it("returns mid prefixed string for message events with mid", () => {
+      assert.strictEqual(getEventId({ message: { mid: "abc123" } }), "mid:abc123");
+    });
+
+    it("returns mid prefixed string for postback events with mid", () => {
+      assert.strictEqual(getEventId({ postback: { mid: "post_456" } }), "mid:post_456");
+    });
+
+    it("returns null for events without mid", () => {
+      assert.strictEqual(getEventId({ message: { text: "hi" } }), null);
+      assert.strictEqual(getEventId({ postback: { payload: "GET_STARTED" } }), null);
+      assert.strictEqual(getEventId({}), null);
     });
   });
 
@@ -357,6 +375,28 @@ describe("messenger module", () => {
       });
       assert.strictEqual(axios.post.mock.calls.length, 0);
       assert.deepStrictEqual(results, []);
+    });
+
+    it("skips duplicate events with the same mid", async () => {
+      getDedupCache().clear();
+      axios.post.mock.mockImplementation(() => Promise.resolve({ data: {} }));
+
+      const body = {
+        object: "page",
+        entry: [
+          {
+            messaging: [
+              { sender: { id: "dup_user" }, message: { text: "hello", mid: "mid.dup" } },
+              { sender: { id: "dup_user" }, message: { text: "hello again", mid: "mid.dup" } },
+            ],
+          },
+        ],
+      };
+
+      await processMessages(body);
+
+      // Only the first event should produce calls (typing + message = 2)
+      assert.strictEqual(axios.post.mock.calls.length, 2);
     });
   });
 
