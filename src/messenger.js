@@ -1,6 +1,7 @@
 const axios = require("axios");
 const { RateLimiter } = require("./ratelimit");
 const logger = require("./logger");
+const { recordSent, recordSuccess, recordFailure, recordRateLimited } = require("./status");
 
 // ---------------------------------------------------------------------------
 // Module-level state — configured once at startup via configure()
@@ -66,6 +67,7 @@ async function processMessages(body) {
 
         // Rate-limit check: don't hammer Facebook's API
         if (!rateLimiter.tryConsume(senderId)) {
+          recordRateLimited();
           logger.warn(
             {
               recipientId: senderId,
@@ -77,6 +79,7 @@ async function processMessages(body) {
           continue;
         }
 
+        recordSent();
         results.push({
           status: "pending",
           recipientId: senderId,
@@ -89,9 +92,13 @@ async function processMessages(body) {
   const sentResults = await Promise.allSettled(
     results.map((r) =>
       sendMessage(r.recipientId, "god is loving and kind")
-        .then(() => ({ status: "fulfilled", recipientId: r.recipientId }))
+        .then(() => {
+          recordSuccess();
+          return { status: "fulfilled", recipientId: r.recipientId };
+        })
         .catch((err) => {
           const detail = err.response?.data?.error?.message || err.message || String(err);
+          recordFailure();
           logger.error({ recipientId: r.recipientId, err }, "Failed to send message");
           return {
             status: "rejected",

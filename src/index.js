@@ -3,6 +3,7 @@ const express = require("express");
 const { verifySignature } = require("./verify");
 const { configure, processMessages, validateWebhookPayload } = require("./messenger");
 const logger = require("./logger");
+const { getStatus } = require("./status");
 
 const app = express();
 
@@ -99,7 +100,13 @@ app.post("/webhook", (req, res) => {
 // Health-check endpoint
 // ---------------------------------------------------------------------------
 app.get("/", (_req, res) => {
-  res.send("god is loving and kind – bot is running");
+  const status = getStatus();
+  res.json({
+    ok: true,
+    message: "god is loving and kind – bot is running",
+    uptimeMs: status.uptimeMs,
+    stats: status.stats,
+  });
 });
 
 // ---------------------------------------------------------------------------
