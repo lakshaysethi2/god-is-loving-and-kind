@@ -39,7 +39,8 @@ Prioritized (P0 = must do, P1 = should do, P2 = nice to have).
   Integration tests verifying SIGTERM/SIGINT both produce clean exit code 0. Spawns the server, probes health endpoint, sends signal, asserts exit.
 - [x] **P2.2 — Healthcheck endpoint returns app status.** ✅ Done (Iteration 7).
   Added `src/status.js` tracking uptime, sent/success/failure/rate-limited counts. `/` endpoint returns JSON with `{ ok, message, uptimeMs, stats }`.
-- [x] **P2.3 — CI workflow (GitHub Actions).** ⛔ BLOCKED — see BLOCKED.md.
+- [ ] **P2.3 — CI workflow (GitHub Actions).** ⛔ BLOCKED — see BLOCKED.md.
+  The file `.github/workflows/ci.yml` is written and correct locally. Push to `origin` requires a GitHub token with `workflows` scope.
 - [x] **P2.4 — Send typing indicator.** ✅ Done (Iteration 10).
   Added `sendTypingIndicator()` that sends `sender_action: "typing_on"` before each reply. Errors are non-blocking.
 - [x] **P2.5 — README.** ✅ Done (Iteration 11).

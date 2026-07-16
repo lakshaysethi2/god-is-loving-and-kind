@@ -6,5 +6,5 @@
 so `.github/workflows/ci.yml` cannot be pushed to the remote. The file exists
 locally and is ready; it needs to be pushed by someone with the right token.
 
-**Workaround:** The file is correct and can be pushed via the GitHub UI or a
-local clone with a personal access token that has `workflows` scope.
+The file will be added to git and pushed automatically once the token is
+refreshed/restored with `workflows` scope.
