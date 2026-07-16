@@ -1,7 +1,7 @@
 const express = require("express");
 
 const { verifySignature } = require("./verify");
-const { configure, processMessages } = require("./messenger");
+const { configure, processMessages, validateWebhookPayload } = require("./messenger");
 
 const app = express();
 
@@ -80,9 +80,11 @@ app.post("/webhook", (req, res) => {
     return res.sendStatus(403);
   }
 
-  // Facebook may send a hub.challenge in POST too during some flows – ignore.
-  if (body.object !== "page") {
-    return res.sendStatus(404);
+  // Validate webhook payload structure
+  const validationError = validateWebhookPayload(body);
+  if (validationError) {
+    console.warn(`Malformed webhook payload: ${validationError}`);
+    return res.sendStatus(200); // still return 200 so Facebook doesn't retry
   }
 
   // Fire-and-forget message processing so the HTTP handler returns promptly.

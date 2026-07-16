@@ -106,6 +106,56 @@ async function processMessages(body) {
 }
 
 /**
+ * Validate the structure of an incoming Facebook webhook payload.
+ * Logs a warning if the payload has an unexpected structure.
+ *
+ * @param {unknown} body - The parsed incoming body.
+ * @returns {string|null} An error message string if invalid, or null if valid.
+ */
+function validateWebhookPayload(body) {
+  if (!body || typeof body !== "object") {
+    return "body is missing or not an object";
+  }
+
+  if (body.object !== "page") {
+    return `unexpected body.object: "${body.object}" (expected "page")`;
+  }
+
+  if (!Array.isArray(body.entry)) {
+    return "body.entry is missing or not an array";
+  }
+
+  for (let i = 0; i < body.entry.length; i++) {
+    const entry = body.entry[i];
+
+    if (!entry || typeof entry !== "object") {
+      return `body.entry[${i}] is not an object`;
+    }
+
+    // messaging is optional — if present it must be an array
+    if ("messaging" in entry && !Array.isArray(entry.messaging)) {
+      return `body.entry[${i}].messaging is not an array`;
+    }
+
+    if (Array.isArray(entry.messaging)) {
+      for (let j = 0; j < entry.messaging.length; j++) {
+        const event = entry.messaging[j];
+        if (!event || typeof event !== "object") {
+          return `body.entry[${i}].messaging[${j}] is not an object`;
+        }
+
+        // sender is optional in some event types, but if present must be an object
+        if ("sender" in event && (!event.sender || typeof event.sender !== "object")) {
+          return `body.entry[${i}].messaging[${j}].sender is not an object`;
+        }
+      }
+    }
+  }
+
+  return null; // valid
+}
+
+/**
  * Send a text message via Facebook Graph API.
  *
  * @param {string} recipientId - The PSID of the recipient.
@@ -127,4 +177,4 @@ async function sendMessage(recipientId, text) {
   return response.data;
 }
 
-module.exports = { configure, getRateLimiter, processMessages, sendMessage };
+module.exports = { configure, getRateLimiter, processMessages, sendMessage, validateWebhookPayload };

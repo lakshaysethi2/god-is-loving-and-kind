@@ -2,7 +2,7 @@ const { describe, it, before, after, beforeEach, mock } = require("node:test");
 const assert = require("node:assert");
 const axios = require("axios");
 
-const { configure, getRateLimiter, processMessages, sendMessage } = require("../src/messenger");
+const { configure, getRateLimiter, processMessages, sendMessage, validateWebhookPayload } = require("../src/messenger");
 
 describe("messenger module", () => {
   before(() => {
@@ -411,6 +411,88 @@ describe("messenger module", () => {
         "user_b"
       );
       assert.strictEqual(results.length, 1);
+    });
+  });
+
+  describe("validateWebhookPayload", () => {
+    it("returns null for a valid payload", () => {
+      const body = {
+        object: "page",
+        entry: [
+          {
+            messaging: [
+              { sender: { id: "u1" }, message: { text: "hi" } },
+            ],
+          },
+        ],
+      };
+      assert.strictEqual(validateWebhookPayload(body), null);
+    });
+
+    it("returns null for a valid payload with multiple entries", () => {
+      const body = {
+        object: "page",
+        entry: [
+          { messaging: [{ sender: { id: "u1" }, message: { text: "a" } }] },
+          { messaging: [{ sender: { id: "u2" }, postback: { payload: "x" } }] },
+        ],
+      };
+      assert.strictEqual(validateWebhookPayload(body), null);
+    });
+
+    it("returns null for a valid payload without messaging (e.g. standby)", () => {
+      const body = { object: "page", entry: [{ standby: [] }] };
+      assert.strictEqual(validateWebhookPayload(body), null);
+    });
+
+    it("returns null for an empty entry array", () => {
+      const body = { object: "page", entry: [] };
+      assert.strictEqual(validateWebhookPayload(body), null);
+    });
+
+    it("rejects a non-object body", () => {
+      assert.ok(validateWebhookPayload(null));
+      assert.ok(validateWebhookPayload(undefined));
+      assert.ok(validateWebhookPayload("string"));
+      assert.ok(validateWebhookPayload(42));
+    });
+
+    it("rejects an object without 'page' as object", () => {
+      const body = { object: "instagram" };
+      const err = validateWebhookPayload(body);
+      assert.ok(err);
+      assert.ok(err.includes("instagram"));
+    });
+
+    it("rejects when entry is not an array", () => {
+      const body = { object: "page", entry: "not_an_array" };
+      assert.ok(validateWebhookPayload(body));
+    });
+
+    it("rejects when entry item is not an object", () => {
+      const body = { object: "page", entry: [null] };
+      assert.ok(validateWebhookPayload(body));
+    });
+
+    it("rejects when messaging is not an array", () => {
+      const body = { object: "page", entry: [{ messaging: "bad" }] };
+      assert.ok(validateWebhookPayload(body));
+    });
+
+    it("rejects when a messaging event is not an object", () => {
+      const body = {
+        object: "page",
+        entry: [{ messaging: [null] }],
+      };
+      assert.ok(validateWebhookPayload(body));
+    });
+
+    it("rejects when sender is present but not an object", () => {
+      const body = {
+        object: "page",
+        entry: [{ messaging: [{ sender: "not_an_object", message: { text: "hi" } }] }],
+      };
+      assert.ok(validateWebhookPayload(body));
     });
   });
 });

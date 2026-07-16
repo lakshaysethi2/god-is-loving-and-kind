@@ -10,7 +10,8 @@ Prioritized (P0 = must do, P1 = should do, P2 = nice to have).
   - `sendMessage()` — 3 tests covering success path, API error, configured version
 - [x] **P0.2 — Serial `await` in `processMessages`.** ✅ Fixed during the extract-refactor in Iteration 1.
   Using `Promise.allSettled` with per-message `.catch()` — one failure doesn't block others.
-- [ ] **P0.3 — Rate-limiting / send queue.** In a busy group, concurrent `Promise.allSettled` could hit Facebook API rate limits (200 calls/user/60s tier). Add a simple in-memory token-bucket or sliding-window rate limiter per recipient.
+- [x] **P0.3 — Rate-limiting / send queue.** ✅ Done (Iteration 2).
+  `RateLimiter` class with per-recipient sliding window, integrated into `processMessages`. Configured via env vars. Automatic stale-entry cleanup.
 
 ## P1 — Should Do
 
