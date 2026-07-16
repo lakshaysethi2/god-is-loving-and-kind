@@ -19,8 +19,8 @@ Prioritized (P0 = must do, P1 = should do, P2 = nice to have).
   Added `validateWebhookPayload()` — structural validation with descriptive error messages. Integrated into the HTTP handler. 11 tests.
 - [x] **P1.2 — ESLint + Prettier configuration.** ✅ Done (Iteration 4).
   Added `eslint.config.mjs` (flat config, ESLint v10), `.prettierrc.json`, `.editorconfig`, npm scripts (`lint`, `format`, `check`). Auto-fixed all 31 lint/format issues across all source and test files.
-- [ ] **P1.3 — `.nvmrc` / `.node-version` file.** Pin the Node.js version for local dev to match the Docker image (22).
-- [ ] **P1.3 — `.nvmrc` / `.node-version` file.** Pin the Node.js version for local dev to match the Docker image (22).
+- [x] **P1.3 — `.nvmrc` / `.node-version` file.** ✅ Done (Iteration 5).
+  Pins Node.js 22 for local dev tooling, matching the Docker image and `engines` field.
 - [ ] **P1.4 — Logging improvements.** Replace `console.log/warn/error` with a structured logger (pino) that includes request IDs, recipient IDs, and JSON-structured output for log aggregation.
 
 ## Discovered during reviews

@@ -1,5 +1,6 @@
 const axios = require("axios");
 const { RateLimiter } = require("./ratelimit");
+const logger = require("./logger");
 
 // ---------------------------------------------------------------------------
 // Module-level state — configured once at startup via configure()
@@ -65,8 +66,13 @@ async function processMessages(body) {
 
         // Rate-limit check: don't hammer Facebook's API
         if (!rateLimiter.tryConsume(senderId)) {
-          console.warn(
-            `Rate-limited: skipping reply to ${senderId} (${rateLimiter.getCount(senderId)}/${rateLimiter.maxPerWindow} in window)`,
+          logger.warn(
+            {
+              recipientId: senderId,
+              count: rateLimiter.getCount(senderId),
+              max: rateLimiter.maxPerWindow,
+            },
+            "Rate-limited: skipping reply",
           );
           continue;
         }
@@ -86,7 +92,7 @@ async function processMessages(body) {
         .then(() => ({ status: "fulfilled", recipientId: r.recipientId }))
         .catch((err) => {
           const detail = err.response?.data?.error?.message || err.message || String(err);
-          console.error(`Failed to send message to ${r.recipientId}: ${detail}`);
+          logger.error({ recipientId: r.recipientId, err }, "Failed to send message");
           return {
             status: "rejected",
             recipientId: r.recipientId,

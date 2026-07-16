@@ -2,6 +2,7 @@ const express = require("express");
 
 const { verifySignature } = require("./verify");
 const { configure, processMessages, validateWebhookPayload } = require("./messenger");
+const logger = require("./logger");
 
 const app = express();
 
@@ -20,15 +21,15 @@ const RATE_LIMIT_WINDOW_MS = Number(process.env.RATE_LIMIT_WINDOW_MS) || 60_000;
 
 // Required checks on startup
 if (!VERIFY_TOKEN) {
-  console.error("FATAL: VERIFY_TOKEN environment variable is not set.");
+  logger.fatal("VERIFY_TOKEN environment variable is not set.");
   process.exit(1);
 }
 if (!PAGE_ACCESS_TOKEN) {
-  console.error("FATAL: PAGE_ACCESS_TOKEN environment variable is not set.");
+  logger.fatal("PAGE_ACCESS_TOKEN environment variable is not set.");
   process.exit(1);
 }
 if (!APP_SECRET) {
-  console.error("FATAL: APP_SECRET environment variable is not set.");
+  logger.fatal("APP_SECRET environment variable is not set.");
   process.exit(1);
 }
 
@@ -58,11 +59,11 @@ app.get("/webhook", (req, res) => {
   const challenge = req.query["hub.challenge"];
 
   if (mode && token === VERIFY_TOKEN) {
-    console.log("Webhook verified successfully.");
+    logger.info("Webhook verified successfully.");
     return res.status(200).send(challenge);
   }
 
-  console.warn("Webhook verification failed – mismatched token or missing mode.");
+  logger.warn("Webhook verification failed – mismatched token or missing mode.");
   return res.sendStatus(403);
 });
 
@@ -76,19 +77,19 @@ app.post("/webhook", (req, res) => {
 
   // 1. Verify payload signature
   if (!verifySignature(rawBody, signature, APP_SECRET)) {
-    console.warn("Ignoring request – invalid HMAC signature");
+    logger.warn("Ignoring request – invalid HMAC signature");
     return res.sendStatus(403);
   }
 
   // Validate webhook payload structure
   const validationError = validateWebhookPayload(body);
   if (validationError) {
-    console.warn(`Malformed webhook payload: ${validationError}`);
+    logger.warn({ validationError }, "Malformed webhook payload");
     return res.sendStatus(200); // still return 200 so Facebook doesn't retry
   }
 
   // Fire-and-forget message processing so the HTTP handler returns promptly.
-  processMessages(body).catch((err) => console.error("Unhandled error in processMessages:", err));
+  processMessages(body).catch((err) => logger.error({ err }, "Unhandled error in processMessages"));
 
   // Facebook expects a 200 OK quickly – send it immediately.
   res.sendStatus(200);
@@ -105,18 +106,18 @@ app.get("/", (_req, res) => {
 // Graceful shutdown
 // ---------------------------------------------------------------------------
 const server = app.listen(PORT, () => {
-  console.log(`Messenger bot listening on port ${PORT}`);
+  logger.info({ port: PORT }, "Messenger bot listening");
 });
 
 function shutdown(signal) {
-  console.log(`${signal} received, shutting down gracefully`);
+  logger.info({ signal }, "Shutting down gracefully");
   server.close(() => {
-    console.log("HTTP server closed");
+    logger.info("HTTP server closed");
     process.exit(0);
   });
   // Force exit after 10s if connections don't drain
   setTimeout(() => {
-    console.error("Forced shutdown after timeout");
+    logger.error("Forced shutdown after timeout");
     process.exit(1);
   }, 10_000).unref();
 }
