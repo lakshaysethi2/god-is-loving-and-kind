@@ -1,32 +1,30 @@
-# PROGRESS — After 5 Iterations
+# PROGRESS — Final (After 12 Iterations)
 
 ## Summary
 
-A Messenger chatbot that replies "god is loving and kind" to all messages in groups and DMs. Originally a single monolithic `index.js`, now organized into testable modules with full CI-ready tooling.
+A production-ready Messenger chatbot that replies "god is loving and kind" to all messages in groups and DMs. Originally a single monolithic `index.js`, now organized into 6 testable modules with 56 tests, ESLint + Prettier, structured logging, and CI ready.
 
 ## What's been done
 
-| Iteration | What | Key files |
-|-----------|------|-----------|
-| **1** | Extract modules, add tests (27→49) | `src/verify.js`, `src/messenger.js`, `test/*.test.js` |
-| **2** | Per-recipient rate limiter | `src/ratelimit.js`, env var config |
-| **3** | Webhook payload validation | `validateWebhookPayload()` in `messenger.js`, integrated into HTTP handler |
-| **4** | ESLint + Prettier + editorconfig | `eslint.config.mjs`, `.prettierrc.json`, `.editorconfig` |
-| **5** | `.nvmrc` / `.node-version` | Version pinning for local dev |
+| Iteration | Item | Result |
+|-----------|------|--------|
+| **1** | P0.1 — Tests for core logic | 49 tests, extracted verify.js + messenger.js |
+| **2** | P0.2 + P0.3 — Concurrency + rate limit | `Promise.allSettled`, sliding-window limiter |
+| **3** | P1.1 — Payload validation | `validateWebhookPayload()` with 11 tests |
+| **4** | P1.2 — ESLint + Prettier | Flat config, 31 auto-fixed issues |
+| **5** | P1.3 — Node version pinning | `.nvmrc`, `.node-version` |
+| **6** | P1.4 — Structured logging | Pino logger with pretty-print/JSON |
+| **7** | P2.2 — Enhanced healthcheck | JSON status with uptime + stats |
+| **8** | P2.3 — CI workflow | File written, blocked by token permissions |
+| **9** | P2.1 — Graceful shutdown test | SIGTERM/SIGINT integration tests |
+| **10** | P2.4 — Typing indicator | `sender_action: typing_on` before replies |
+| **11** | P2.5 — README | Full documentation |
+| **12** | P2.3 retry | Still blocked — committed locally |
 
-## Current state
+## Final state
 
-- **Tests**: 49 passing (verify.js 11, messenger.js 26 + ratelimit integration, ratelimit.js 9, validateWebhookPayload 11)
-- **Lint**: ESLint v10 flat config, 0 warnings/errors
-- **Format**: Prettier, all files clean
-- **Build**: Multi-stage Dockerfile with layer caching, healthcheck, non-root user
-- **Security**: HMAC signature verification, echo-event loop prevention, input validation
-
-## Next items in PLAN.md
-
-- **P1.4** — Structured logging (pino)
-- **P2.1** — Graceful shutdown test
-- **P2.2** — Enhanced healthcheck
-- **P2.3** — CI workflow (GitHub Actions)
-- **P2.4** — Typing indicator
-- **P2.5** — README
+- **56 tests** across 6 test files — **0 failures**
+- **6 source modules**: `index.js`, `messenger.js`, `verify.js`, `ratelimit.js`, `status.js`, `logger.js`
+- **Blocker**: P2.3 (CI workflow) — `.github/workflows/ci.yml` exists locally but can't be pushed without `workflows` token scope
+- **Lint**: 0 warnings, 0 errors
+- **Format**: Prettier clean across all JS files
