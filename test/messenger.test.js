@@ -2,7 +2,7 @@ const { describe, it, before, after, beforeEach, mock } = require("node:test");
 const assert = require("node:assert");
 const axios = require("axios");
 
-const { configure, processMessages, sendMessage } = require("../src/messenger");
+const { configure, getRateLimiter, processMessages, sendMessage } = require("../src/messenger");
 
 describe("messenger module", () => {
   before(() => {
@@ -346,6 +346,71 @@ describe("messenger module", () => {
       });
       assert.strictEqual(axios.post.mock.calls.length, 0);
       assert.deepStrictEqual(results, []);
+    });
+  });
+
+  describe("rate limiting", () => {
+    before(() => {
+      // Reconfigure with a very strict rate limiter: 1 message per recipient
+      configure("test_page_token", "v99.0", { maxPerWindow: 1, windowMs: 60000 });
+    });
+
+    beforeEach(() => {
+      mock.method(axios, "post", mock.fn());
+      axios.post.mock.mockImplementation(() =>
+        Promise.resolve({ data: {} })
+      );
+    });
+
+    it("skips messages when rate limit is exceeded for a recipient", async () => {
+      const body = {
+        object: "page",
+        entry: [
+          {
+            messaging: [
+              { sender: { id: "rate_limited_user" }, message: { text: "first" } },
+              { sender: { id: "rate_limited_user" }, message: { text: "second" } },
+              { sender: { id: "rate_limited_user" }, message: { text: "third" } },
+            ],
+          },
+        ],
+      };
+
+      const results = await processMessages(body);
+
+      // Only the first message should have been sent (second and third rate-limited)
+      assert.strictEqual(axios.post.mock.calls.length, 1);
+      // The results only contain the one actual send
+      assert.strictEqual(results.length, 1);
+      assert.strictEqual(results[0].status, "fulfilled");
+    });
+
+    it("allows different recipients independent rate limits", async () => {
+      getRateLimiter().tryConsume("user_a"); // use the slot for user_a
+      getRateLimiter().tryConsume("user_a"); // this should fail
+
+      // user_b still has their slot available
+      const body = {
+        object: "page",
+        entry: [
+          {
+            messaging: [
+              { sender: { id: "user_a" }, message: { text: "a1" } },
+              { sender: { id: "user_b" }, message: { text: "b1" } },
+            ],
+          },
+        ],
+      };
+
+      const results = await processMessages(body);
+
+      // user_a is rate-limited (already consumed), user_b is allowed
+      assert.strictEqual(axios.post.mock.calls.length, 1);
+      assert.strictEqual(
+        axios.post.mock.calls[0].arguments[1].recipient.id,
+        "user_b"
+      );
+      assert.strictEqual(results.length, 1);
     });
   });
 });

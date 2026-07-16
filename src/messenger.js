@@ -1,15 +1,37 @@
 const axios = require("axios");
+const { RateLimiter } = require("./ratelimit");
 
 // ---------------------------------------------------------------------------
-// These are dependencies that must be set before calling processMessages() or
-// sendMessage(). They mirror the env-var pattern in index.js.
+// Module-level state — configured once at startup via configure()
 // ---------------------------------------------------------------------------
 let pageAccessToken = "";
 let graphApiVersion = "v21.0";
 
-function configure(token, version) {
+/** @type {RateLimiter} */
+let rateLimiter = new RateLimiter(); // sensible defaults: 200/60s per recipient
+
+/**
+ * Configure the messenger module.
+ *
+ * @param {string}  token                - Facebook Page Access Token.
+ * @param {string}  [version]            - Graph API version (default "v21.0").
+ * @param {object}  [rateLimitOptions]   - Override rate-limiter defaults.
+ * @param {number}  [rateLimitOptions.maxPerWindow=200]
+ * @param {number}  [rateLimitOptions.windowMs=60000]
+ */
+function configure(token, version, rateLimitOptions) {
   pageAccessToken = token;
   if (version) graphApiVersion = version;
+
+  if (rateLimitOptions) {
+    rateLimiter.dispose();
+    rateLimiter = new RateLimiter(rateLimitOptions);
+  }
+}
+
+// Exposed so tests can inspect the instance
+function getRateLimiter() {
+  return rateLimiter;
 }
 
 /**
@@ -40,6 +62,14 @@ async function processMessages(body) {
       if (event.message || event.postback) {
         const senderId = event.sender?.id;
         if (!senderId) continue;
+
+        // Rate-limit check: don't hammer Facebook's API
+        if (!rateLimiter.tryConsume(senderId)) {
+          console.warn(
+            `Rate-limited: skipping reply to ${senderId} (${rateLimiter.getCount(senderId)}/${rateLimiter.maxPerWindow} in window)`
+          );
+          continue;
+        }
 
         results.push({
           status: "pending",
@@ -97,4 +127,4 @@ async function sendMessage(recipientId, text) {
   return response.data;
 }
 
-module.exports = { configure, processMessages, sendMessage };
+module.exports = { configure, getRateLimiter, processMessages, sendMessage };

@@ -4,13 +4,12 @@ Prioritized (P0 = must do, P1 = should do, P2 = nice to have).
 
 ## P0 — Critical
 
-- [ ] **P0.1 — Tests for core logic.** No test coverage exists. Write unit tests for:
-  - `verifySignature()` (valid HMAC, invalid HMAC, missing header, wrong format, timing safety)
-  - `processMessages()` (echo skip, message types, missing sender, malformed payloads)
-  - `sendMessage()` (success path, API error, network error)
-  - HTTP handlers: `GET /webhook` (valid verify, invalid token, missing params), `POST /webhook` (valid payload, bad signature, non-page object)
-- [ ] **P0.2 — Serial `await` in `processMessages` can cause blocking and partial failure.**
-  Each message is `await`ed sequentially. If one `sendMessage` rejects, the rest are dropped. Switch to `Promise.allSettled` with per-message error handling so all messages get attempted independently.
+- [x] **P0.1 — Tests for core logic.** ✅ Done (Iteration 1).
+  - `verifySignature()` — 11 tests covering valid, invalid, missing params, wrong format, timing safety
+  - `processMessages()` — 13 tests covering echo skip, message types (text, image, sticker, postback), missing sender, empty/malformed payloads, concurrent sends, partial failure
+  - `sendMessage()` — 3 tests covering success path, API error, configured version
+- [x] **P0.2 — Serial `await` in `processMessages`.** ✅ Fixed during the extract-refactor in Iteration 1.
+  Using `Promise.allSettled` with per-message `.catch()` — one failure doesn't block others.
 - [ ] **P0.3 — Rate-limiting / send queue.** In a busy group, concurrent `Promise.allSettled` could hit Facebook API rate limits (200 calls/user/60s tier). Add a simple in-memory token-bucket or sliding-window rate limiter per recipient.
 
 ## P1 — Should Do

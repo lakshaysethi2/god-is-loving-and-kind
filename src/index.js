@@ -14,6 +14,10 @@ const PAGE_ACCESS_TOKEN = process.env.PAGE_ACCESS_TOKEN;
 const APP_SECRET = process.env.APP_SECRET;
 const GRAPH_API_VERSION = process.env.GRAPH_API_VERSION || "v21.0";
 
+// Rate-limit settings (optional, with sensible defaults)
+const RATE_LIMIT_MAX = Number(process.env.RATE_LIMIT_MAX_PER_WINDOW) || 200;
+const RATE_LIMIT_WINDOW_MS = Number(process.env.RATE_LIMIT_WINDOW_MS) || 60_000;
+
 // Required checks on startup
 if (!VERIFY_TOKEN) {
   console.error("FATAL: VERIFY_TOKEN environment variable is not set.");
@@ -29,7 +33,10 @@ if (!APP_SECRET) {
 }
 
 // Configure the messenger module
-configure(PAGE_ACCESS_TOKEN, GRAPH_API_VERSION);
+configure(PAGE_ACCESS_TOKEN, GRAPH_API_VERSION, {
+  maxPerWindow: RATE_LIMIT_MAX,
+  windowMs: RATE_LIMIT_WINDOW_MS,
+});
 
 // ---------------------------------------------------------------------------
 // Raw-body middleware (needed for Hmac verification)
