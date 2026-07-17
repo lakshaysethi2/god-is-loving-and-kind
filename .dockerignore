@@ -1,0 +1,28 @@
+# Prevent sending local node_modules (they would be stale anyway)
+node_modules/
+npm-debug.log*
+
+# Environment files (secrets must NOT leak into the image)
+.env
+.envrc
+.env.local
+.env.*.local
+
+# Version control
+.git
+.gitignore
+.gitattributes
+.dockerignore
+
+# CI / tooling
+.github/
+.circleci/
+.docker/
+
+# OS cruft
+.DS_Store
+Thumbs.db
+
+# Markdown / docs (not needed at runtime)
+README.md
+LICENSE

@@ -1,0 +1,16 @@
+services:
+  bot:
+    build:
+      context: .
+      # Use "production" target for a small, dependency-only image.
+      # Switch to "build" if you need devDependencies (e.g. testing).
+      target: production
+    image: god-is-loving-and-kind-bot:latest
+    container_name: messenger-bot
+    restart: unless-stopped
+    ports:
+      - "${PORT:-3000}:3000"
+    env_file:
+      - .env
+    environment:
+      - NODE_ENV=production
