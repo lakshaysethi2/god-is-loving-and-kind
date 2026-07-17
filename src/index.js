@@ -240,4 +240,4 @@ if (require.main === module) {
   start();
 }
 
-module.exports = { app, getInFlightCount, start, stop, shutdown };
+module.exports = { app, getInFlightCount, start, stop, shutdown, track };
