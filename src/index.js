@@ -102,7 +102,10 @@ const inFlight = new Set();
  */
 function track(promise) {
   inFlight.add(promise);
-  promise.finally(() => inFlight.delete(promise));
+  promise.then(
+    () => inFlight.delete(promise),
+    () => inFlight.delete(promise),
+  );
   return promise;
 }
 
@@ -193,26 +196,43 @@ function start() {
   process.on("SIGINT", () => shutdown("SIGINT"));
 }
 
+/**
+ * Close the HTTP server and drain in-flight work without calling process.exit().
+ * Useful for tests; also used internally by shutdown().
+ * @returns {Promise<void>}
+ */
+function stop() {
+  return new Promise((resolve) => {
+    if (!server) {
+      resolve();
+      return;
+    }
+
+    server.close(() => {
+      logger.info("HTTP server closed");
+      if (inFlight.size > 0) {
+        logger.info({ count: inFlight.size }, "Waiting for in-flight processing to complete");
+      }
+      Promise.allSettled(Array.from(inFlight)).then(() => {
+        logger.info("All in-flight work complete");
+        resolve();
+      });
+    });
+  });
+}
+
 async function shutdown(signal) {
   logger.info({ signal, inFlight: inFlight.size }, "Shutting down gracefully");
 
-  // Stop accepting new connections
-  server.close(async () => {
-    logger.info("HTTP server closed");
-    // Wait for in-flight message processing to finish
-    if (inFlight.size > 0) {
-      logger.info({ count: inFlight.size }, "Waiting for in-flight processing to complete");
-      await Promise.allSettled(Array.from(inFlight));
-    }
-    logger.info("All in-flight work complete, exiting");
-    process.exit(0);
-  });
-
   // Force exit after 10s if connections don't drain
-  setTimeout(() => {
+  const forceExitTimer = setTimeout(() => {
     logger.error({ remaining: inFlight.size }, "Forced shutdown after timeout");
     process.exit(1);
-  }, 10_000).unref();
+  }, 10_000);
+  forceExitTimer.unref();
+
+  await stop();
+  process.exit(0);
 }
 
 // Only auto-start when this file is the main entry point (not when required as a module)
@@ -220,4 +240,4 @@ if (require.main === module) {
   start();
 }
 
-module.exports = { app, getInFlightCount, start, shutdown };
+module.exports = { app, getInFlightCount, start, stop, shutdown };

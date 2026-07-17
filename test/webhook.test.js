@@ -45,8 +45,9 @@ describe("webhook HTTP endpoint", () => {
     mod.start();
   });
 
-  after(() => {
-    // No explicit close needed; node:test cleans up after the process
+  after(async () => {
+    // Close the server so the test process can exit cleanly
+    if (mod?.stop) await mod.stop();
   });
 
   beforeEach(() => {
