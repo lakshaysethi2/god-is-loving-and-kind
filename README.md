@@ -1,3 +1,4 @@
+# i abandon this project , ill come back when facebook improves their developer platform , make it easy for us to make bots and help users on messenger like telegram , discord , till then , im cross with meta and wont be saying nice things about it to my friends and fam.
 # God Is Loving And Kind — Messenger Bot
 
 A Facebook Messenger chatbot that replies **"god is loving and kind"** to every message in group chats and direct conversations.
